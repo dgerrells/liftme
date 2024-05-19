@@ -8,14 +8,14 @@ import {
   loadData,
 } from "./dataUtils";
 import { Bar } from "react-chartjs-2";
-import Button from "@mui/material/Button";
+
 import {
   Box,
   Card,
   CardContent,
   CardHeader,
   FormControl,
-  Grid,
+  CircularProgress,
   InputLabel,
   MenuItem,
   Select,
@@ -23,23 +23,25 @@ import {
 } from "@mui/material";
 
 function App() {
+  const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState<AllowedFilters>();
-  const [rawData, setRawData] = useState<DataRow[]>();
   const [selectedFilters, setSelectedFilters] = useState<any>({});
   const [chartConfig, setChartConfig] = useState<any>();
   const [selectedField, setSelectedField] =
-    useState<AllowedStatFields>("Best3BenchKg");
+    useState<AllowedStatFields>("Bench");
 
-  const allowedStatFields: AllowedStatFields[] = [
-    "Best3BenchKg",
-    "Best3DeadliftKg",
-    "Best3SquatKg",
-  ];
+  const allowedStatFields: AllowedStatFields[] = ["Bench", "Squat", "Deadlift"];
 
   const loadAllData = async () => {
-    const { filters, rawData } = await loadData();
-    setFilters(filters);
-    setRawData(rawData);
+    try {
+      setIsLoading(true);
+      const { filters } = await loadData();
+      setFilters(filters);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -47,22 +49,24 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!rawData) return;
+    if (isLoading) return;
 
     const doIt = async () => {
-      const chartConfig = await getChartConfig(rawData, {
+      const chartConfig = await getChartConfig({
         field: selectedField,
         filterConfig: selectedFilters,
       });
       setChartConfig(chartConfig);
     };
     doIt();
-  }, [rawData, selectedFilters, selectedField]);
+  }, [selectedFilters, selectedField, isLoading]);
 
   const onFilterChange = async (e: any, key: string) => {
     const newFilters = { ...selectedFilters, [key]: e.target.value };
     setSelectedFilters(newFilters);
   };
+
+  const isChartDataEmpty = !chartConfig || chartConfig?.std === 0;
 
   return (
     <>
@@ -81,6 +85,11 @@ function App() {
           display: "flex",
         }}
       >
+        {isLoading && (
+          <Box sx={{ display: "flex" }}>
+            <CircularProgress />
+          </Box>
+        )}
         {filters && (
           <Card
             sx={{
@@ -154,7 +163,12 @@ function App() {
           </Card>
         )}
       </Box>
-      {chartConfig && (
+      {isChartDataEmpty && !isLoading && (
+        <>
+          <Typography>No data</Typography>
+        </>
+      )}
+      {!isChartDataEmpty && (
         <Bar
           style={{ width: "100vw", maxWidth: "1200px" }}
           data={chartConfig.chartData}

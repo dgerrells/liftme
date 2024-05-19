@@ -1,5 +1,5 @@
 import Papa from "papaparse";
-import dataUrl from "./assets/data.csv?url";
+import dataUrl from "./assets/lift-data.gz?url";
 import * as math from "mathjs";
 
 export type DataRow = {
@@ -53,14 +53,11 @@ export type AllowedFilters = {
   BirthYearClass: Set<string>;
   AgeClass: Set<string>;
   WeightClassKg: Set<string>;
-  State: Set<string>;
+  // State: Set<string>;
   Sanctioned: Set<string>;
 };
 
-export type AllowedStatFields =
-  | "Best3BenchKg"
-  | "Best3DeadliftKg"
-  | "Best3SquatKg";
+export type AllowedStatFields = "Bench" | "Deadlift" | "Squat";
 
 const filters: AllowedFilters = {
   Sex: new Set(),
@@ -68,7 +65,6 @@ const filters: AllowedFilters = {
   BirthYearClass: new Set(),
   AgeClass: new Set(),
   WeightClassKg: new Set(),
-  State: new Set(),
   Sanctioned: new Set(),
 };
 const filterKeys = Object.keys(filters);
@@ -76,6 +72,18 @@ const filterKeys = Object.keys(filters);
 type CalcStdOptions = {
   filterConfig?: { [K in keyof AllowedFilters]: string | null | undefined };
   field: AllowedStatFields;
+};
+
+const fieldMap = {
+  Bench: "Best3BenchKg",
+  Squat: "Best3SquatKg",
+  Deadlift: "Best3DeadliftKg",
+};
+
+let cachedLifts: { [key: string]: DataRow[] } = {
+  Bench: [],
+  Squat: [],
+  Deadlift: [],
 };
 
 export const loadData = async () => {
@@ -95,31 +103,40 @@ export const loadData = async () => {
     });
   });
 
+  cachedLifts.Bench = rawData.filter(
+    (row) => row[fieldMap["Bench"]] > 0 && row["MaxLift"] === "Bench"
+  );
+  cachedLifts.Squat = rawData.filter(
+    (row) => row[fieldMap["Squat"]] > 0 && row["MaxLift"] === "Squat"
+  );
+  cachedLifts.Deadlift = rawData.filter(
+    (row) => row[fieldMap["Deadlift"]] > 0 && row["MaxLift"] === "Deadlift"
+  );
+  console.log(cachedLifts);
   return {
     filters,
     rawData,
   };
 };
 
-export const calcStdData = async (
-  rawData: DataRow[],
-  options: CalcStdOptions
-) => {
+export const calcStdData = async (options: CalcStdOptions) => {
   // get all rows who match the filter
-  const values = rawData
+  const values = cachedLifts[options.field]
     .filter((row) => {
       for (const [key, value] of Object.entries(options.filterConfig || {})) {
         // @ts-ignore
         if (value && row[key] !== value) return false;
       }
-      return row[options.field] !== null && row[options.field] !== undefined;
+      return true;
     })
-    .filter((row) => row[options.field] > 0)
-    .map((row) => row[options.field]);
+    .map((row) => row[fieldMap[options.field]]);
 
   if (values.length === 0) {
     return {
       buckets: [],
+      std: 0,
+      variance: 0,
+      mean: 0,
     };
   }
 
@@ -136,11 +153,8 @@ export const calcStdData = async (
   };
 };
 
-export const getChartConfig = async (
-  rawData: DataRow[],
-  options: CalcStdOptions
-) => {
-  const { buckets: data, std, mean } = await calcStdData(rawData, options);
+export const getChartConfig = async (options: CalcStdOptions) => {
+  const { buckets: data, std, mean } = await calcStdData(options);
   const chartData = {
     labels: data.map((bucket, i) => `${bucket.bucketSize * i}`),
     datasets: [
@@ -178,8 +192,8 @@ export const getChartConfig = async (
             // this shit is super ugly and complicated due to how labels work in chartjs
             // we have to manually find the scale based on the number of labels
             // and not the actual data. bucketsize is the same across all buckets
-            xMin: (mean + std * dev) / data[0].bucketSize,
-            xMax: (mean + std * dev) / data[0].bucketSize,
+            xMin: (mean + std * dev) / data[0]?.bucketSize,
+            xMax: (mean + std * dev) / data[0]?.bucketSize,
             borderColor: "rgba(255, 99, 132, 0.8)",
             borderWidth: 2,
             borderDash: [5, 2],
@@ -194,8 +208,8 @@ export const getChartConfig = async (
             // this shit is super ugly and complicated due to how labels work in chartjs
             // we have to manually find the scale based on the number of labels
             // and not the actual data. bucketsize is the same across all buckets
-            xMin: mean / data[0].bucketSize,
-            xMax: mean / data[0].bucketSize,
+            xMin: mean / data[0]?.bucketSize,
+            xMax: mean / data[0]?.bucketSize,
             borderColor: "rgba(255, 250, 132, 0.8)",
             borderWidth: 2,
             borderDash: [5, 2],
