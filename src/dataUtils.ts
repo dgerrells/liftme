@@ -86,8 +86,17 @@ let cachedLifts: { [key: string]: DataRow[] } = {
   Deadlift: [],
 };
 
+async function DecompressBlob(blob) {
+  const ds = new DecompressionStream("gzip");
+  const decompressedStream = blob.stream().pipeThrough(ds);
+  return await new Response(decompressedStream).blob();
+}
+
 export const loadData = async () => {
-  const text = await fetch(dataUrl).then((res) => res.text());
+  const blob = await fetch(dataUrl).then((res) => res.blob());
+  const blobDecompress = await DecompressBlob(blob);
+  const text = await blobDecompress.text();
+
   const papaResult = Papa.parse(text, {
     header: true,
     dynamicTyping: true,
@@ -112,7 +121,7 @@ export const loadData = async () => {
   cachedLifts.Deadlift = rawData.filter(
     (row) => row[fieldMap["Deadlift"]] > 0 && row["MaxLift"] === "Deadlift"
   );
-  console.log(cachedLifts);
+
   return {
     filters,
     rawData,
