@@ -1,5 +1,7 @@
 import Papa from "papaparse";
+import { parquetMetadata, parquetRead  } from 'hyparquet'
 import dataUrl from "./assets/lift-data.gz?url";
+import dataUrlParquet from "./assets/lift-data.parquet?url";
 import * as math from "mathjs";
 
 export type DataRow = {
@@ -51,7 +53,7 @@ export type AllowedFilters = {
   Sex: Set<string>;
   Equipment: Set<string>;
   BirthYearClass: Set<string>;
-  AgeClass: Set<string>;
+  // AgeClass: Set<string>;
   WeightClassKg: Set<string>;
   // State: Set<string>;
   Sanctioned: Set<string>;
@@ -63,7 +65,7 @@ const filters: AllowedFilters = {
   Sex: new Set(),
   Equipment: new Set(),
   BirthYearClass: new Set(),
-  AgeClass: new Set(),
+  // AgeClass: new Set(),
   WeightClassKg: new Set(),
   Sanctioned: new Set(),
 };
@@ -93,16 +95,34 @@ async function DecompressBlob(blob) {
 }
 
 export const loadData = async () => {
-  const blob = await fetch(dataUrl).then((res) => res.blob());
-  const blobDecompress = await DecompressBlob(blob);
-  const text = await blobDecompress.text();
+  // const blob = await fetch(dataUrl).then((res) => res.blob());
+  // const blobDecompress = await DecompressBlob(blob);
+  // const text = await blobDecompress.text();
 
-  const papaResult = Papa.parse(text, {
-    header: true,
-    dynamicTyping: true,
+  // const papaResult = Papa.parse(text, {
+  //   header: true,
+  //   dynamicTyping: true,
+  // });
+
+  // const rawData = papaResult.data as DataRow[];
+  const rawData: DataRow[] = [];
+  const res = await fetch(dataUrlParquet);
+  const arrayBuffer = await res.arrayBuffer();
+  const metadata = parquetMetadata(arrayBuffer);
+
+  await parquetRead({
+    file: arrayBuffer,
+    onComplete: data => {
+      data.forEach(rawRow => {
+        const row = {};
+        metadata.schema.forEach((schema, i) => {
+          if (!schema.type) return;
+          row[schema.name] = rawRow[i-1];
+        });
+        rawData.push(row as DataRow);
+      });
+    }
   });
-
-  const rawData = papaResult.data as DataRow[];
 
   rawData.map((row) => {
     // find all possible filter values
@@ -224,7 +244,7 @@ export const getChartConfig = async (options: CalcStdOptions) => {
             borderDash: [5, 2],
             label: {
               display: true,
-              content: "mean",
+              content: `mean: ${mean.toFixed(0)}kg`,
               position: "middle",
             },
           },
@@ -245,7 +265,7 @@ function bucketSort(numbers: number[], bucketCount: number = 32) {
   numbers.sort((a, b) => a - b);
 
   const minValue = 0;
-  const maxValue = 500;
+  const maxValue = 520;
   const range = maxValue - minValue;
   const bucketSize = Math.floor(range / bucketCount);
   const buckets: number[][] = new Array(bucketCount).fill(null).map(() => []);
@@ -260,15 +280,18 @@ function bucketSort(numbers: number[], bucketCount: number = 32) {
     min: number;
     max: number;
     count: number;
+    mean: number;
     bucketSize: number;
   }> = [];
   buckets.forEach((bucket) => {
     const sorted = bucket.sort((a, b) => a - b);
     const min = sorted[0];
     const max = sorted[sorted.length - 1];
+    const mean = sorted.length > 0 ? math.mean(sorted) : 0;
     results.push({
       min,
       max,
+      mean,
       count: sorted.length,
       bucketSize,
     });

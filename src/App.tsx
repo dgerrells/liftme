@@ -120,7 +120,7 @@ function App() {
                   value={selectedField}
                   onChange={(e) => setSelectedField(e.target.value)}
                 >
-                  {allowedStatFields.map((v) => (
+                  {allowedStatFields.sort().map((v) => (
                     <MenuItem value={v}>{v}</MenuItem>
                   ))}
                 </Select>
@@ -140,7 +140,7 @@ function App() {
                     <MenuItem key={1} value="">
                       <em>None</em>
                     </MenuItem>
-                    {[...val].map((v) => (
+                    {[...val].sort().map((v) => (
                       <MenuItem value={v}>{v}</MenuItem>
                     ))}
                   </Select>
