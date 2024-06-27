@@ -1,5 +1,5 @@
 import Papa from "papaparse";
-import { parquetMetadata, parquetRead  } from 'hyparquet'
+import { parquetMetadata, parquetRead } from "hyparquet";
 import dataUrl from "./assets/lift-data.gz?url";
 import dataUrlParquet from "./assets/lift-data.parquet?url";
 import * as math from "mathjs";
@@ -14,7 +14,7 @@ export type DataRow = {
   BirthYearClass: string;
   Division: string;
   BodyweightKg: number;
-  WeightClassKg: number;
+  WeightClassKg: number | string;
   Squat1Kg: number;
   Squat2Kg: number;
   Squat3Kg: number;
@@ -56,7 +56,8 @@ export type AllowedFilters = {
   // AgeClass: Set<string>;
   WeightClassKg: Set<string>;
   // State: Set<string>;
-  Sanctioned: Set<string>;
+  // Sanctioned: Set<string>;
+  Tested: Set<string>;
 };
 
 export type AllowedStatFields = "Bench" | "Deadlift" | "Squat";
@@ -67,7 +68,8 @@ const filters: AllowedFilters = {
   BirthYearClass: new Set(),
   // AgeClass: new Set(),
   WeightClassKg: new Set(),
-  Sanctioned: new Set(),
+  // Sanctioned: new Set(),
+  Tested: new Set(),
 };
 const filterKeys = Object.keys(filters);
 
@@ -112,16 +114,17 @@ export const loadData = async () => {
 
   await parquetRead({
     file: arrayBuffer,
-    onComplete: data => {
-      data.forEach(rawRow => {
-        const row = {};
+    onComplete: (data) => {
+      data.forEach((rawRow) => {
+        const row = {} as DataRow;
         metadata.schema.forEach((schema, i) => {
           if (!schema.type) return;
-          row[schema.name] = rawRow[i-1];
+          row[schema.name] = rawRow[i - 1];
         });
+        row.Tested = ~~row.Tested > 0 ? "No" : "Yes";
         rawData.push(row as DataRow);
       });
-    }
+    },
   });
 
   rawData.map((row) => {
@@ -228,7 +231,7 @@ export const getChartConfig = async (options: CalcStdOptions) => {
             borderDash: [5, 2],
             label: {
               display: true,
-              content: `${dev}α`,
+              content: `${dev}σ`,
               position: "end",
             },
           })),

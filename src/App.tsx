@@ -101,14 +101,17 @@ function App() {
             </Typography>
             <Box
               sx={{
-                p: 2,
+                p: [1, 2],
                 display: "flex",
                 justifyContent: "center",
                 alignItems: "center",
                 flexWrap: "wrap",
               }}
             >
-              <FormControl sx={{ m: 1, width: "160px" }} size="small">
+              <FormControl
+                sx={{ m: [0.5, 1], width: ["150px", "160px"] }}
+                size="small"
+              >
                 <InputLabel id={`filter-label-statfield`}>
                   Lift Fields
                 </InputLabel>
@@ -126,7 +129,10 @@ function App() {
                 </Select>
               </FormControl>
               {Object.entries(filters).map(([key, val]) => (
-                <FormControl sx={{ m: 1, width: "160px" }} size="small">
+                <FormControl
+                  sx={{ m: [0.5, 1], width: ["150px", "160px"] }}
+                  size="small"
+                >
                   <InputLabel id={`filter-label-${key}`}>{key}</InputLabel>
                   <Select
                     autoWidth
@@ -140,9 +146,18 @@ function App() {
                     <MenuItem key={1} value="">
                       <em>None</em>
                     </MenuItem>
-                    {[...val].sort().map((v) => (
-                      <MenuItem value={v}>{v}</MenuItem>
-                    ))}
+                    {key === "WeightClassKg" &&
+                      [...val]
+                        .sort((a: any, b: any) => a - b)
+                        .map((v) => (
+                          <MenuItem value={v}>
+                            {`${v}` === "145" ? "140+" : v}
+                          </MenuItem>
+                        ))}
+                    {key !== "WeightClassKg" &&
+                      [...val]
+                        .sort()
+                        .map((v) => <MenuItem value={v}>{v}</MenuItem>)}
                   </Select>
                 </FormControl>
               ))}
@@ -170,7 +185,12 @@ function App() {
       )}
       {!isChartDataEmpty && (
         <Bar
-          style={{ width: "100vw", maxWidth: "1200px" }}
+          style={{
+            width: "100vw",
+            maxWidth: "1200px",
+            marginLeft: "-1rem",
+            marginRight: "-1rem",
+          }}
           data={chartConfig.chartData}
           options={chartConfig.chartOptions}
         />
